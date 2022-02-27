@@ -10,7 +10,9 @@ package fsnotify
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -457,5 +459,42 @@ func TestInotifyOverflow(t *testing.T) {
 	if overflows == 0 {
 		t.Fatalf("No overflow and not enough creates (expected %d, got %d)",
 			numDirs*numFiles, creates)
+	}
+}
+
+func TestINotifyNoBlockingSyscalls(t *testing.T) {
+	getThreads := func() int {
+		cmd := fmt.Sprintf("ls /proc/%d/task | wc -l", os.Getpid())
+		output, err := exec.Command("/bin/bash", "-c", cmd).Output()
+		if err != nil {
+			t.Fatalf("Failed to execute command to check number of threads, err %s", err)
+		}
+
+		n, err := strconv.ParseInt(strings.Trim(string(output), "\n"), 10, 64)
+		if err != nil {
+			t.Fatalf("Failed to parse output as int, err: %s", err)
+		}
+		return int(n)
+	}
+
+	w, err := NewWatcher()
+	if err != nil {
+		t.Fatalf("Failed to create watcher: %v", err)
+	}
+
+	startingThreads := getThreads()
+	// Call readEvents a bunch of times; if this function has a blocking raw syscall, it'll create many new kthreads
+	for i := 0; i <= 60; i++ {
+		go w.readEvents()
+	}
+
+	// Bad synchronization mechanism
+	time.Sleep(time.Second * 2)
+
+	endingThreads := getThreads()
+
+	// Did we spawn any new threads?
+	if diff := endingThreads - startingThreads; diff > 0 {
+		t.Fatalf("Got a nonzero diff %v. starting: %v. ending: %v", diff, startingThreads, endingThreads)
 	}
 }
