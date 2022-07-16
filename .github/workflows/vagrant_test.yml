@@ -40,14 +40,14 @@ jobs:
       - name: setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.17'
+          go-version: "1.17"
 
       - name: Show Vagrant version
         run: vagrant --version
 
       - name: compile test binary
         run: |
-           GOOS=linux GOARCH=amd64 go test -o Vagrantfiles/${{ matrix.vagrant_image}}/fsnotify.test -c ./...
+          GOOS=linux GOARCH=amd64 go test -o Vagrantfiles/${{ matrix.vagrant_image}}/fsnotify.test -c ./...
 
       - name: Run vagrant up
         run: cd Vagrantfiles/${{ matrix.vagrant_image}} && vagrant up
