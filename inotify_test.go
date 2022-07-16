@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -56,7 +58,7 @@ func TestInotifyCloseSlightlyLaterWithWatch(t *testing.T) {
 		t.Fatalf("Failed to create watcher")
 	}
 	if err := w.Add(testDir); err != nil {
-		t.Fatalf("Failed to add test directory")
+		t.Fatalf("Failed to add watcher to %s. %v", testDir, err)
 	}
 
 	// Wait until readEvents has reached unix.Read, and Close.
@@ -84,7 +86,7 @@ func TestInotifyCloseAfterRead(t *testing.T) {
 
 	// Generate an event.
 	if _, err := os.Create(filepath.Join(testDir, "somethingSOMETHINGsomethingSOMETHING")); err != nil {
-		t.Fatalf("failed to create")
+		t.Fatalf("Unable to create test file in %s. %v", testDir, err)
 	}
 
 	// Wait for readEvents to read the event, then close the watcher.
@@ -150,16 +152,16 @@ func TestInotifyCloseCreate(t *testing.T) {
 	// At this point, we've received one event, so the goroutine is ready.
 	// It's also blocking on unix.Read.
 	// Now we try to swap the file descriptor under its nose.
-	w.Close()
+	_ = w.Close()
 	w, err = NewWatcher()
+	if err != nil {
+		t.Fatalf("Failed to create second watcher: %v", err)
+	}
 	defer func() {
 		if err := w.Close(); err != nil {
 			t.Fatalf("Close failed: %v", err)
 		}
 	}()
-	if err != nil {
-		t.Fatalf("Failed to create second watcher: %v", err)
-	}
 
 	<-time.After(50 * time.Millisecond)
 	err = w.Add(testDir)
@@ -324,6 +326,8 @@ func TestInotifyRemoveTwice(t *testing.T) {
 	err = w.Remove(testFile)
 	if err == nil {
 		t.Fatalf("no error on removing invalid file")
+	} else if !errors.Is(err, ErrWatchDoesNotExist) {
+		t.Fatalf("unexpected error %v on removing invalid file", err)
 	}
 
 	func() {
@@ -361,7 +365,6 @@ func TestInotifyClose(t *testing.T) {
 	if !errors.Is(err, ErrWatcherClosed) {
 		t.Fatalf("Remove did not error as expected: %v", err)
 	}
-
 }
 
 func TestInotifyInnerMapLength(t *testing.T) {
@@ -390,7 +393,10 @@ func TestInotifyInnerMapLength(t *testing.T) {
 		t.Fatalf("Failed to add testFile: %v", err)
 	}
 	errs := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for err := range w.Errors {
 			errs <- err
 		}
@@ -418,6 +424,9 @@ func TestInotifyInnerMapLength(t *testing.T) {
 	if err := <-errs; err != nil {
 		t.Fatalf("error received: %s", err)
 	}
+
+	w.Close()
+	wg.Wait()
 }
 
 func TestInotifyOverflow(t *testing.T) {
@@ -444,7 +453,7 @@ func TestInotifyOverflow(t *testing.T) {
 	for dn := 0; dn < numDirs; dn++ {
 		testSubdir := fmt.Sprintf("%s/%d", testDir, dn)
 
-		err := os.Mkdir(testSubdir, 0777)
+		err := os.Mkdir(testSubdir, 0o777)
 		if err != nil {
 			t.Fatalf("Cannot create subdir: %v", err)
 		}
@@ -509,5 +518,79 @@ func TestInotifyOverflow(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestInotifyWatchList(t *testing.T) {
+	testDir := tempMkdir(t)
+	defer os.RemoveAll(testDir)
+	testFile := filepath.Join(testDir, "testfile")
+
+	handle, err := os.Create(testFile)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	handle.Close()
+
+	w, err := NewWatcher()
+	if err != nil {
+		t.Fatalf("Failed to create watcher: %v", err)
+	}
+	defer w.Close()
+
+	err = w.Add(testFile)
+	if err != nil {
+		t.Fatalf("Failed to add testFile: %v", err)
+	}
+	err = w.Add(testDir)
+	if err != nil {
+		t.Fatalf("Failed to add testDir: %v", err)
+	}
+
+	value := w.WatchList()
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, entry := range value {
+		if _, ok := w.watches[entry]; !ok {
+			t.Fatal("return value of WatchList is not same as the expected")
+		}
+	}
+}
+
+func TestINotifyNoBlockingSyscalls(t *testing.T) {
+	getThreads := func() int {
+		cmd := fmt.Sprintf("ls /proc/%d/task | wc -l", os.Getpid())
+		output, err := exec.Command("/bin/bash", "-c", cmd).Output()
+		if err != nil {
+			t.Fatalf("Failed to execute command to check number of threads, err %s", err)
+		}
+
+		n, err := strconv.ParseInt(strings.Trim(string(output), "\n"), 10, 64)
+		if err != nil {
+			t.Fatalf("Failed to parse output as int, err: %s", err)
+		}
+		return int(n)
+	}
+
+	w, err := NewWatcher()
+	if err != nil {
+		t.Fatalf("Failed to create watcher: %v", err)
+	}
+
+	startingThreads := getThreads()
+	// Call readEvents a bunch of times; if this function has a blocking raw syscall, it'll create many new kthreads
+	for i := 0; i <= 60; i++ {
+		go w.readEvents()
+	}
+
+	// Bad synchronization mechanism
+	time.Sleep(time.Second * 2)
+
+	endingThreads := getThreads()
+
+	// Did we spawn any new threads?
+	if diff := endingThreads - startingThreads; diff > 0 {
+		t.Fatalf("Got a nonzero diff %v. starting: %v. ending: %v", diff, startingThreads, endingThreads)
 	}
 }

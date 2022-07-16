@@ -76,7 +76,7 @@ func (w *Watcher) Close() error {
 	w.isClosed = true
 
 	// copy paths to remove while locked
-	var pathsToRemove = make([]string, 0, len(w.watches))
+	pathsToRemove := make([]string, 0, len(w.watches))
 	for name := range w.watches {
 		pathsToRemove = append(pathsToRemove, name)
 	}
@@ -116,7 +116,6 @@ func (w *Watcher) Remove(name string) error {
 }
 
 func (w *Watcher) remove(name string) error {
-
 	pathsToRemove := []string{name}
 
 	for len(pathsToRemove) != 0 {
@@ -162,6 +161,21 @@ func (w *Watcher) remove(name string) error {
 	}
 
 	return nil
+}
+
+// WatchList returns the directories and files that are being monitered.
+func (w *Watcher) WatchList() []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.muInternal.Lock()
+	defer w.muInternal.Unlock()
+	entries := make([]string, 0, len(w.watches))
+	for pathname := range w.watches {
+		entries = append(entries, pathname)
+	}
+
+	return entries
 }
 
 // Watch all events (except NOTE_EXTEND, NOTE_LINK, NOTE_REVOKE)
@@ -437,7 +451,6 @@ func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 	for _, fileInfo := range files {
 		filePath := filepath.Join(dirPath, fileInfo.Name())
 		err := w.sendFileCreatedEventIfNew(filePath, fileInfo)
-
 		if err != nil {
 			return
 		}

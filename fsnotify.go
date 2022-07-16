@@ -14,12 +14,6 @@ import (
 	"fmt"
 )
 
-// ErrWatchDoesNotExist is returned by `Watcher.Remove(name)` when the given name is not monitored by the watcher
-var ErrWatchDoesNotExist = errors.New("Watch does not exist")
-
-// ErrWatcherClosed is returned by `Watcher.Remove(name)` by methods attempting to modify the state of a closed watcher
-var ErrWatcherClosed = errors.New("Watcher is closed")
-
 // Event represents a single file system notification.
 type Event struct {
 	Name string // Relative path to the file or directory.
@@ -71,5 +65,12 @@ func (e Event) String() string {
 
 // Common errors that can be reported by a watcher
 var (
+	// ErrEventOverflow is returned if the queue overflows
 	ErrEventOverflow = errors.New("fsnotify queue overflow")
+
+	// ErrWatchDoesNotExist is returned by `Watcher.Remove(name)` when the given name is not monitored by the watcher
+	ErrWatchDoesNotExist = errors.New("Watch does not exist")
+
+	// ErrWatcherClosed is returned by `Watcher.Remove(name)` by methods attempting to modify the state of a closed watcher
+	ErrWatcherClosed = errors.New("Watcher is closed")
 )

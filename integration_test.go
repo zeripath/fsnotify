@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+const (
+	eventSeparator = 50 * time.Millisecond
+	waitForEvents  = 500 * time.Millisecond
+)
+
 // An atomic counter
 type counter struct {
 	val int32
@@ -147,7 +152,7 @@ func TestFsnotifyMultipleOperations(t *testing.T) {
 	f.Close()
 	checkError("c")
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	if err := os.Rename(testFile, testFileRenamed); err != nil {
 		t.Fatalf("rename failed: %s", err)
@@ -167,19 +172,19 @@ func TestFsnotifyMultipleOperations(t *testing.T) {
 	f.Close()
 	checkError("d")
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	// Recreate the file that was moved
-	f, err = os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err = os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
 	f.Close()
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	checkError("e")
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	cReceived := createReceived.value()
 	if cReceived != 2 {
 		t.Fatalf("incorrect number of create events received after 500 ms (%d vs %d)", cReceived, 2)
@@ -253,7 +258,7 @@ func TestFsnotifyMultipleCreates(t *testing.T) {
 	// Create a file
 	// This should add at least one event to the fsnotify event queue
 	var f *os.File
-	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -270,22 +275,22 @@ func TestFsnotifyMultipleCreates(t *testing.T) {
 	}
 	f.Close()
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	os.Remove(testFile)
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	// Recreate the file
-	f, err = os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err = os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
 	f.Close()
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	// Modify
-	f, err = os.OpenFile(testFile, os.O_WRONLY, 0666)
+	f, err = os.OpenFile(testFile, os.O_WRONLY, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -302,10 +307,10 @@ func TestFsnotifyMultipleCreates(t *testing.T) {
 	}
 	f.Close()
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	// Modify
-	f, err = os.OpenFile(testFile, os.O_WRONLY, 0666)
+	f, err = os.OpenFile(testFile, os.O_WRONLY, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -322,10 +327,10 @@ func TestFsnotifyMultipleCreates(t *testing.T) {
 	}
 	f.Close()
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	cReceived := createReceived.value()
 	if cReceived != 2 {
 		t.Fatalf("incorrect number of create events received after 500 ms (%d vs %d)", cReceived, 2)
@@ -363,7 +368,7 @@ func TestFsnotifyDirOnly(t *testing.T) {
 	testFileAlreadyExists := filepath.Join(testDir, "TestFsnotifyEventsExisting.testfile")
 	{
 		var f *os.File
-		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0o666)
 		if err != nil {
 			t.Fatalf("creating test file failed: %s", err)
 		}
@@ -412,7 +417,7 @@ func TestFsnotifyDirOnly(t *testing.T) {
 	// Create a file
 	// This should add at least one event to the fsnotify event queue
 	var f *os.File
-	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -420,7 +425,7 @@ func TestFsnotifyDirOnly(t *testing.T) {
 		t.Fatalf("sync failed: %s", err)
 	}
 
-	time.Sleep(time.Millisecond)
+	time.Sleep(eventSeparator)
 	if _, err := f.WriteString("data"); err != nil {
 		t.Fatalf("write failed: %s", err)
 	}
@@ -429,13 +434,13 @@ func TestFsnotifyDirOnly(t *testing.T) {
 	}
 	f.Close()
 
-	time.Sleep(50 * time.Millisecond) // give system time to sync write change before delete
+	time.Sleep(eventSeparator) // give system time to sync write change before delete
 
 	os.Remove(testFile)
 	os.Remove(testFileAlreadyExists)
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	cReceived := createReceived.value()
 	if cReceived != 1 {
 		t.Fatalf("incorrect number of create events received after 500 ms (%d vs %d)", cReceived, 1)
@@ -473,7 +478,7 @@ func TestFsnotifyDeleteWatchedDir(t *testing.T) {
 	testFileAlreadyExists := filepath.Join(testDir, "TestFsnotifyEventsExisting.testfile")
 	{
 		var f *os.File
-		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0o666)
 		if err != nil {
 			t.Fatalf("creating test file failed: %s", err)
 		}
@@ -515,7 +520,7 @@ func TestFsnotifyDeleteWatchedDir(t *testing.T) {
 	os.RemoveAll(testDir)
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	dReceived := deleteReceived.value()
 	if dReceived < 2 {
 		t.Fatalf("did not receive at least %d delete events, received %d after 500 ms", 2, dReceived)
@@ -565,13 +570,13 @@ func TestFsnotifySubDir(t *testing.T) {
 	addWatch(t, watcher, testDir)
 
 	// Create sub-directory
-	if err := os.Mkdir(testSubDir, 0777); err != nil {
+	if err := os.Mkdir(testSubDir, 0o777); err != nil {
 		t.Fatalf("failed to create test sub-directory: %s", err)
 	}
 
 	// Create a file
 	var f *os.File
-	f, err := os.OpenFile(testFile1, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(testFile1, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -582,7 +587,7 @@ func TestFsnotifySubDir(t *testing.T) {
 
 	// Create a file (Should not see this! we are not watching subdir)
 	var fs *os.File
-	fs, err = os.OpenFile(testSubDirFile, os.O_WRONLY|os.O_CREATE, 0666)
+	fs, err = os.OpenFile(testSubDirFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -598,7 +603,7 @@ func TestFsnotifySubDir(t *testing.T) {
 	os.Remove(testFile1)
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	cReceived := createReceived.value()
 	if cReceived != 2 {
 		t.Fatalf("incorrect number of create events received after 500 ms (%d vs %d)", cReceived, 2)
@@ -661,7 +666,7 @@ func TestFsnotifyRename(t *testing.T) {
 	// Create a file
 	// This should add at least one event to the fsnotify event queue
 	var f *os.File
-	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -685,7 +690,7 @@ func TestFsnotifyRename(t *testing.T) {
 	}
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	if renameReceived.value() == 0 {
 		t.Fatal("fsnotify rename events have not been received after 500 ms")
 	}
@@ -749,7 +754,7 @@ func TestFsnotifyRenameToCreate(t *testing.T) {
 	// Create a file
 	// This should add at least one event to the fsnotify event queue
 	var f *os.File
-	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -763,7 +768,7 @@ func TestFsnotifyRenameToCreate(t *testing.T) {
 	}
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	if createReceived.value() == 0 {
 		t.Fatal("fsnotify create events have not been received after 500 ms")
 	}
@@ -803,7 +808,7 @@ func TestFsnotifyRenameToOverwrite(t *testing.T) {
 
 	// Create a file
 	var fr *os.File
-	fr, err := os.OpenFile(testFileRenamed, os.O_WRONLY|os.O_CREATE, 0666)
+	fr, err := os.OpenFile(testFileRenamed, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -841,7 +846,7 @@ func TestFsnotifyRenameToOverwrite(t *testing.T) {
 	// Create a file
 	// This should add at least one event to the fsnotify event queue
 	var f *os.File
-	f, err = os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err = os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -855,7 +860,7 @@ func TestFsnotifyRenameToOverwrite(t *testing.T) {
 	}
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	if eventReceived.value() == 0 {
 		t.Fatal("fsnotify events have not been received after 500 ms")
 	}
@@ -883,7 +888,7 @@ func TestRemovalOfWatch(t *testing.T) {
 	testFileAlreadyExists := filepath.Join(testDir, "TestFsnotifyEventsExisting.testfile")
 	{
 		var f *os.File
-		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0o666)
 		if err != nil {
 			t.Fatalf("creating test file failed: %s", err)
 		}
@@ -925,7 +930,7 @@ func TestRemovalOfWatch(t *testing.T) {
 		t.Fatalf("sync failed: %s", err)
 	}
 	f.Close()
-	if err := os.Chmod(testFileAlreadyExists, 0700); err != nil {
+	if err := os.Chmod(testFileAlreadyExists, 0o700); err != nil {
 		t.Fatalf("chmod failed: %s", err)
 	}
 	time.Sleep(400 * time.Millisecond)
@@ -983,7 +988,7 @@ func TestFsnotifyAttrib(t *testing.T) {
 	// Create a file
 	// This should add at least one event to the fsnotify event queue
 	var f *os.File
-	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(testFile, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		t.Fatalf("creating test file failed: %s", err)
 	}
@@ -1002,13 +1007,13 @@ func TestFsnotifyAttrib(t *testing.T) {
 	// Add a watch for testFile
 	addWatch(t, watcher, testFile)
 
-	if err := os.Chmod(testFile, 0700); err != nil {
+	if err := os.Chmod(testFile, 0o700); err != nil {
 		t.Fatalf("chmod failed: %s", err)
 	}
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
 	// Creating/writing a file changes also the mtime, so IsAttrib should be set to true here
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 	if modifyReceived.value() != 0 {
 		t.Fatal("received an unexpected modify event when creating a test file")
 	}
@@ -1034,7 +1039,7 @@ func TestFsnotifyAttrib(t *testing.T) {
 	}
 	f.Close()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 
 	if modifyReceived.value() != 1 {
 		t.Fatal("didn't receive a modify event after changing test file contents")
@@ -1049,11 +1054,11 @@ func TestFsnotifyAttrib(t *testing.T) {
 
 	// Doing a chmod on the file should trigger an event with the "attrib" flag set (the contents
 	// of the file are not changed though)
-	if err := os.Chmod(testFile, 0600); err != nil {
+	if err := os.Chmod(testFile, 0o600); err != nil {
 		t.Fatalf("chmod failed: %s", err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 
 	if attribReceived.value() != 1 {
 		t.Fatal("didn't receive an attribute change after 500ms")
@@ -1083,7 +1088,7 @@ func TestFsnotifyClose(t *testing.T) {
 		atomic.StoreInt32(&done, 1)
 	}()
 
-	time.Sleep(50e6) // 50 ms
+	time.Sleep(eventSeparator)
 	if atomic.LoadInt32(&done) == 0 {
 		t.Fatal("double Close() test failed: second Close() call didn't return")
 	}
@@ -1137,7 +1142,7 @@ func TestFsnotifyFakeSymlink(t *testing.T) {
 	t.Logf("Created bogus symlink")
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 
 	// Should not be error, just no events for broken links (watching nothing)
 	if errorsReceived.value() > 0 {
@@ -1193,12 +1198,12 @@ func TestCyclicSymlink(t *testing.T) {
 	// no way for us to get events on symlinks themselves, because opening them
 	// opens an fd to the file to which they point.
 
-	if err := ioutil.WriteFile(link, []byte("foo"), 0700); err != nil {
+	if err := ioutil.WriteFile(link, []byte("foo"), 0o700); err != nil {
 		t.Fatalf("could not make symlink: %v", err)
 	}
 
 	// We expect this event to be received almost immediately, but let's wait 500 ms to be sure
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(waitForEvents)
 
 	if got := createEventsReceived.value(); got == 0 {
 		t.Errorf("want at least 1 create event got %v", got)
@@ -1218,7 +1223,7 @@ func TestConcurrentRemovalOfWatch(t *testing.T) {
 	testFileAlreadyExists := filepath.Join(testDir, "TestFsnotifyEventsExisting.testfile")
 	{
 		var f *os.File
-		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(testFileAlreadyExists, os.O_WRONLY|os.O_CREATE, 0o666)
 		if err != nil {
 			t.Fatalf("creating test file failed: %s", err)
 		}
