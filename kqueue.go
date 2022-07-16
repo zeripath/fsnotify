@@ -82,7 +82,7 @@ func (w *Watcher) Close() error {
 	// unlock before calling Remove, which also locks
 
 	for _, name := range pathsToRemove {
-		w.Remove(name)
+		_ = w.Remove(name)
 	}
 
 	// send a "quit" message to the reader goroutine
@@ -141,7 +141,7 @@ func (w *Watcher) Remove(name string) error {
 			// Since these are internal, not much sense in propagating error
 			// to the user, as that will just confuse them with an error about
 			// a path they did not explicitly watch themselves.
-			w.Remove(name)
+			_ = w.Remove(name)
 		}
 	}
 
@@ -318,7 +318,7 @@ loop:
 			}
 
 			if event.Op&Rename == Rename || event.Op&Remove == Remove {
-				w.Remove(event.Name)
+				_ = w.Remove(event.Name)
 				w.mu.Lock()
 				delete(w.fileExists, event.Name)
 				w.mu.Unlock()
@@ -355,7 +355,7 @@ loop:
 				} else {
 					filePath := filepath.Clean(event.Name)
 					if fileInfo, err := os.Lstat(filePath); err == nil {
-						w.sendFileCreatedEventIfNew(filePath, fileInfo)
+						_ = w.sendFileCreatedEventIfNew(filePath, fileInfo)
 					}
 				}
 			}

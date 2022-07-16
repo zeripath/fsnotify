@@ -17,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // Watcher watches a set of files, delivering events to a channel.
@@ -35,12 +37,12 @@ type Watcher struct {
 
 // NewWatcher establishes a new watcher with the underlying OS and begins waiting for events.
 func NewWatcher() (*Watcher, error) {
-	port, e := syscall.CreateIoCompletionPort(syscall.InvalidHandle, 0, 0, 0)
+	port, e := windows.CreateIoCompletionPort(windows.InvalidHandle, 0, 0, 0)
 	if e != nil {
 		return nil, os.NewSyscallError("CreateIoCompletionPort", e)
 	}
 	w := &Watcher{
-		port:    port,
+		port:    syscall.Handle(port),
 		watches: make(watchMap),
 		input:   make(chan *input, 1),
 		Events:  make(chan Event, 50),
@@ -130,7 +132,7 @@ const (
 	sysFSACCESS     = 0x1
 	sysFSALLEVENTS  = 0xfff
 	sysFSATTRIB     = 0x4
-	sysFSCLOSE      = 0x18
+	sysFSCLOSE      = 0x18 //nolint
 	sysFSCREATE     = 0x100
 	sysFSDELETE     = 0x200
 	sysFSDELETESELF = 0x400
@@ -203,7 +205,7 @@ type (
 )
 
 func (w *Watcher) wakeupReader() error {
-	e := syscall.PostQueuedCompletionStatus(w.port, 0, 0, nil)
+	e := windows.PostQueuedCompletionStatus(windows.Handle(w.port), 0, 0, nil)
 	if e != nil {
 		return os.NewSyscallError("PostQueuedCompletionStatus", e)
 	}
@@ -211,7 +213,11 @@ func (w *Watcher) wakeupReader() error {
 }
 
 func getDir(pathname string) (dir string, err error) {
-	attr, e := syscall.GetFileAttributes(syscall.StringToUTF16Ptr(pathname))
+	ptr, e := syscall.UTF16PtrFromString(pathname)
+	if e != nil {
+		return "", os.NewSyscallError("UTF16PtrFromString", e)
+	}
+	attr, e := syscall.GetFileAttributes(ptr)
 	if e != nil {
 		return "", os.NewSyscallError("GetFileAttributes", e)
 	}
@@ -225,7 +231,11 @@ func getDir(pathname string) (dir string, err error) {
 }
 
 func getIno(path string) (ino *inode, err error) {
-	h, e := syscall.CreateFile(syscall.StringToUTF16Ptr(path),
+	ptr, e := syscall.UTF16PtrFromString(path)
+	if e != nil {
+		return nil, os.NewSyscallError("UTF16PtrFromString", e)
+	}
+	h, e := syscall.CreateFile(ptr,
 		syscall.FILE_LIST_DIRECTORY,
 		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
 		nil, syscall.OPEN_EXISTING,
@@ -235,7 +245,7 @@ func getIno(path string) (ino *inode, err error) {
 	}
 	var fi syscall.ByHandleFileInformation
 	if e = syscall.GetFileInformationByHandle(h, &fi); e != nil {
-		syscall.CloseHandle(h)
+		_ = syscall.CloseHandle(h)
 		return nil, os.NewSyscallError("GetFileInformationByHandle", e)
 	}
 	ino = &inode{
@@ -281,8 +291,8 @@ func (w *Watcher) addWatch(pathname string, flags uint64) error {
 	watchEntry := w.watches.get(ino)
 	w.mu.Unlock()
 	if watchEntry == nil {
-		if _, e := syscall.CreateIoCompletionPort(ino.handle, w.port, 0, 0); e != nil {
-			syscall.CloseHandle(ino.handle)
+		if _, e := windows.CreateIoCompletionPort(windows.Handle(ino.handle), windows.Handle(w.port), 0, 0); e != nil {
+			_ = syscall.CloseHandle(ino.handle)
 			return os.NewSyscallError("CreateIoCompletionPort", e)
 		}
 		watchEntry = &watch{
@@ -295,7 +305,7 @@ func (w *Watcher) addWatch(pathname string, flags uint64) error {
 		w.mu.Unlock()
 		flags |= provisional
 	} else {
-		syscall.CloseHandle(ino.handle)
+		_ = syscall.CloseHandle(ino.handle)
 	}
 	if pathname == dir {
 		watchEntry.mask |= flags
@@ -389,7 +399,7 @@ func (w *Watcher) startRead(watch *watch) error {
 			err = nil
 		}
 		w.deleteWatch(watch)
-		w.startRead(watch)
+		_ = w.startRead(watch)
 		return err
 	}
 	return nil
@@ -401,12 +411,13 @@ func (w *Watcher) startRead(watch *watch) error {
 func (w *Watcher) readEvents() {
 	var (
 		n, key uint32
-		ov     *syscall.Overlapped
+		ov     *windows.Overlapped
 	)
 	runtime.LockOSThread()
 
 	for {
-		e := syscall.GetQueuedCompletionStatus(w.port, &n, &key, &ov, syscall.INFINITE)
+		uKey := uintptr(key)
+		e := windows.GetQueuedCompletionStatus(windows.Handle(w.port), &n, &uKey, &ov, syscall.INFINITE)
 		watch := (*watch)(unsafe.Pointer(ov))
 
 		if watch == nil {
@@ -421,7 +432,7 @@ func (w *Watcher) readEvents() {
 				for _, index := range indexes {
 					for _, watch := range index {
 						w.deleteWatch(watch)
-						w.startRead(watch)
+						_ = w.startRead(watch)
 					}
 				}
 				var err error
@@ -458,7 +469,7 @@ func (w *Watcher) readEvents() {
 			// Watched directory was probably removed
 			w.sendEvent(watch.path, watch.mask&sysFSDELETESELF)
 			w.deleteWatch(watch)
-			w.startRead(watch)
+			_ = w.startRead(watch)
 			continue
 		case syscall.ERROR_OPERATION_ABORTED:
 			// CancelIo was called on this handle

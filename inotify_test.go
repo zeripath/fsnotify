@@ -57,7 +57,9 @@ func TestInotifyCloseSlightlyLaterWithWatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create watcher")
 	}
-	w.Add(testDir)
+	if err := w.Add(testDir); err != nil {
+		t.Fatalf("Failed to add watcher to %s. %v", testDir, err)
+	}
 
 	// Wait until readEvents has reached unix.Read, and Close.
 	<-time.After(50 * time.Millisecond)
@@ -83,7 +85,9 @@ func TestInotifyCloseAfterRead(t *testing.T) {
 	}
 
 	// Generate an event.
-	os.Create(filepath.Join(testDir, "somethingSOMETHINGsomethingSOMETHING"))
+	if _, err := os.Create(filepath.Join(testDir, "somethingSOMETHINGsomethingSOMETHING")); err != nil {
+		t.Fatalf("Unable to create test file in %s. %v", testDir, err)
+	}
 
 	// Wait for readEvents to read the event, then close the watcher.
 	<-time.After(50 * time.Millisecond)
@@ -134,7 +138,7 @@ func TestInotifyCloseCreate(t *testing.T) {
 	}
 	h.Close()
 	select {
-	case _ = <-w.Events:
+	case <-w.Events:
 	case err := <-w.Errors:
 		t.Fatalf("Error from watcher: %v", err)
 	case <-time.After(50 * time.Millisecond):
@@ -144,12 +148,12 @@ func TestInotifyCloseCreate(t *testing.T) {
 	// At this point, we've received one event, so the goroutine is ready.
 	// It's also blocking on unix.Read.
 	// Now we try to swap the file descriptor under its nose.
-	w.Close()
+	_ = w.Close()
 	w, err = NewWatcher()
-	defer w.Close()
 	if err != nil {
 		t.Fatalf("Failed to create second watcher: %v", err)
 	}
+	defer w.Close()
 
 	<-time.After(50 * time.Millisecond)
 	err = w.Add(testDir)
@@ -353,7 +357,7 @@ func TestInotifyInnerMapLength(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to remove testFile: %v", err)
 	}
-	_ = <-w.Events                      // consume Remove event
+	<-w.Events                          // consume Remove event
 	<-time.After(50 * time.Millisecond) // wait IN_IGNORE propagated
 
 	w.mu.Lock()
