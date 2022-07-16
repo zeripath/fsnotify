@@ -6,16 +6,16 @@ fsnotify utilizes [`golang.org/x/sys`](https://pkg.go.dev/golang.org/x/sys) rath
 
 Cross platform: Windows, Linux, BSD and macOS.
 
-| Adapter               | OS                               | Status                                                                                                                          |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| inotify               | Linux 2.6.27 or later, Android\* | Supported |
-| kqueue                | BSD, macOS, iOS\*                | Supported |
-| ReadDirectoryChangesW | Windows                          | Supported |
-| FSEvents              | macOS                            | [Planned](https://github.com/fsnotify/fsnotify/issues/11)                                                                       |
-| FEN                   | Solaris 11                       | [In Progress](https://github.com/fsnotify/fsnotify/pull/371)                                                                   |
-| fanotify              | Linux 2.6.37+                    | [Maybe](https://github.com/fsnotify/fsnotify/issues/114)                                                                      |
-| USN Journals          | Windows                          | [Maybe](https://github.com/fsnotify/fsnotify/issues/53)                                                                         |
-| Polling               | *All*                            | [Maybe](https://github.com/fsnotify/fsnotify/issues/9)                                                                          |
+| Adapter               | OS                               | Status                                                       |
+| --------------------- | -------------------------------- | ------------------------------------------------------------ |
+| inotify               | Linux 2.6.27 or later, Android\* | Supported                                                    |
+| kqueue                | BSD, macOS, iOS\*                | Supported                                                    |
+| ReadDirectoryChangesW | Windows                          | Supported                                                    |
+| FSEvents              | macOS                            | [Planned](https://github.com/fsnotify/fsnotify/issues/11)    |
+| FEN                   | Solaris 11                       | [In Progress](https://github.com/fsnotify/fsnotify/pull/371) |
+| fanotify              | Linux 2.6.37+                    | [Maybe](https://github.com/fsnotify/fsnotify/issues/114)     |
+| USN Journals          | Windows                          | [Maybe](https://github.com/fsnotify/fsnotify/issues/53)      |
+| Polling               | _All_                            | [Maybe](https://github.com/fsnotify/fsnotify/issues/9)       |
 
 \* Android and iOS are untested.
 
@@ -94,13 +94,14 @@ As of now, yes. Looking into making this single-thread friendly (see [howeyc #7]
 
 **Why am I receiving multiple events for the same file on OS X?**
 
-Spotlight indexing on OS X can result in multiple events (see [howeyc #62][#62]). A temporary workaround is to add your folder(s) to the *Spotlight Privacy settings* until we have a native FSEvents implementation (see [#11][]).
+Spotlight indexing on OS X can result in multiple events (see [howeyc #62][#62]). A temporary workaround is to add your folder(s) to the _Spotlight Privacy settings_ until we have a native FSEvents implementation (see [#11][]).
 
 **How many files can be watched at once?**
 
 There are OS-specific limits as to how many watches can be created:
-* Linux: /proc/sys/fs/inotify/max_user_watches contains the limit, reaching this limit results in a "no space left on device" error.
-* BSD / OSX: sysctl variables "kern.maxfiles" and "kern.maxfilesperproc", reaching these limits results in a "too many open files" error.
+
+- Linux: /proc/sys/fs/inotify/max_user_watches contains the limit, reaching this limit results in a "no space left on device" error.
+- BSD / OSX: sysctl variables "kern.maxfiles" and "kern.maxfilesperproc", reaching these limits results in a "too many open files" error.
 
 **Why don't notifications work with NFS filesystems or filesystem in userspace (FUSE)?**
 
@@ -110,11 +111,9 @@ fsnotify requires support from underlying OS to work. The current NFS protocol d
 [#18]: https://github.com/fsnotify/fsnotify/issues/18
 [#11]: https://github.com/fsnotify/fsnotify/issues/11
 [#7]: https://github.com/howeyc/fsnotify/issues/7
-
 [contributing]: https://github.com/shogo82148/fsnotify/blob/main/CONTRIBUTING.md
 
 ## Related Projects
 
-* [notify](https://github.com/rjeczalik/notify)
-* [fsevents](https://github.com/fsnotify/fsevents)
-
+- [notify](https://github.com/rjeczalik/notify)
+- [fsevents](https://github.com/fsnotify/fsevents)
