@@ -386,7 +386,7 @@ func TestInotifyOverflow(t *testing.T) {
 	for dn := 0; dn < numDirs; dn++ {
 		testSubdir := fmt.Sprintf("%s/%d", testDir, dn)
 
-		err := os.Mkdir(testSubdir, 0777)
+		err := os.Mkdir(testSubdir, 0o777)
 		if err != nil {
 			t.Fatalf("Cannot create subdir: %v", err)
 		}
@@ -459,6 +459,43 @@ func TestInotifyOverflow(t *testing.T) {
 	if overflows == 0 {
 		t.Fatalf("No overflow and not enough creates (expected %d, got %d)",
 			numDirs*numFiles, creates)
+	}
+}
+
+func TestInotifyWatchList(t *testing.T) {
+	testDir := tempMkdir(t)
+	defer os.RemoveAll(testDir)
+	testFile := filepath.Join(testDir, "testfile")
+
+	handle, err := os.Create(testFile)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	handle.Close()
+
+	w, err := NewWatcher()
+	if err != nil {
+		t.Fatalf("Failed to create watcher: %v", err)
+	}
+	defer w.Close()
+
+	err = w.Add(testFile)
+	if err != nil {
+		t.Fatalf("Failed to add testFile: %v", err)
+	}
+	err = w.Add(testDir)
+	if err != nil {
+		t.Fatalf("Failed to add testDir: %v", err)
+	}
+
+	value := w.WatchList()
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, entry := range value {
+		if _, ok := w.watches[entry]; !ok {
+			t.Fatal("return value of WatchList is not same as the expected")
+		}
 	}
 }
 

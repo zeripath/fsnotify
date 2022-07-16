@@ -1,10 +1,8 @@
 # File system notifications for Go
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/fsnotify/fsnotify.svg)](https://pkg.go.dev/github.com/fsnotify/fsnotify) [![Go Report Card](https://goreportcard.com/badge/github.com/fsnotify/fsnotify)](https://goreportcard.com/report/github.com/fsnotify/fsnotify) [![Maintainers Wanted](https://img.shields.io/badge/maintainers-wanted-red.svg)](https://github.com/fsnotify/fsnotify/issues/413)
+[![Go Reference](https://pkg.go.dev/badge/github.com/shogo82148/fsnotify.svg)](https://pkg.go.dev/github.com/shogo82148/fsnotify) [![Go Report Card](https://goreportcard.com/badge/github.com/shogo82148/fsnotify)](https://goreportcard.com/report/github.com/shogo82148/fsnotify)
 
-
-
-fsnotify utilizes [golang.org/x/sys](https://godoc.org/golang.org/x/sys) rather than `syscall` from the standard library. 
+fsnotify utilizes [`golang.org/x/sys`](https://pkg.go.dev/golang.org/x/sys) rather than [`syscall`](https://pkg.go.dev/syscall) from the standard library.
 
 Cross platform: Windows, Linux, BSD and macOS.
 
@@ -21,13 +19,13 @@ Cross platform: Windows, Linux, BSD and macOS.
 
 \* Android and iOS are untested.
 
-Please see [the documentation](https://pkg.go.dev/github.com/fsnotify/fsnotify) and consult the [FAQ](#faq) for usage information.
+Please see [the documentation](https://pkg.go.dev/github.com/shogo82148/fsnotify) and consult the [FAQ](#faq) for usage information.
 
 ## API stability
 
-fsnotify is a fork of [howeyc/fsnotify](https://github.com/howeyc/fsnotify) with a new API as of v1.0. The API is based on [this design document](http://goo.gl/MrYxyA). 
+fsnotify is a fork of [howeyc/fsnotify](https://github.com/howeyc/fsnotify) with a new API as of v1.0. The API is based on [this design document](http://goo.gl/MrYxyA).
 
-All [releases](https://github.com/fsnotify/fsnotify/releases) are tagged based on [Semantic Versioning](http://semver.org/).
+All [releases](https://github.com/shogo82148/fsnotify/releases) are tagged based on [Semantic Versioning](http://semver.org/).
 
 ## Usage
 
@@ -37,7 +35,7 @@ package main
 import (
 	"log"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/shogo82148/fsnotify"
 )
 
 func main() {
@@ -113,7 +111,7 @@ fsnotify requires support from underlying OS to work. The current NFS protocol d
 [#11]: https://github.com/fsnotify/fsnotify/issues/11
 [#7]: https://github.com/howeyc/fsnotify/issues/7
 
-[contributing]: https://github.com/fsnotify/fsnotify/blob/master/CONTRIBUTING.md
+[contributing]: https://github.com/shogo82148/fsnotify/blob/main/CONTRIBUTING.md
 
 ## Related Projects
 
