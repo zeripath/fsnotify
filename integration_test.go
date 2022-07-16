@@ -8,7 +8,9 @@
 package fsnotify
 
 import (
+	"errors"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -1251,5 +1253,103 @@ func testRename(file1, file2 string) error {
 	default:
 		cmd := exec.Command("mv", file1, file2)
 		return cmd.Run()
+	}
+}
+
+func TestDeleteWatchedFile(t *testing.T) {
+	// create dir
+	// start watching
+	// create child dir
+	// start watching child
+	// stop watching child
+	// delete dir
+	watcher, err := NewWatcher()
+	if err != nil {
+		t.Fatalf("Unable to create watcher: %v", err)
+	}
+	defer watcher.Close()
+
+	errs := make(chan error, 1)
+	go func() {
+		defer close(errs)
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				t.Logf("Event: %v", event)
+				if event.Op&Write == Write {
+					t.Logf("Modified file: %s", event.Name)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				errs <- err
+			}
+		}
+	}()
+
+	tmpdir, err := os.MkdirTemp("", "TestDeleteWatchedFile")
+	if err != nil {
+		t.Fatalf("Error creating tmpdir: %v", err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	if err := os.Mkdir(filepath.Join(tmpdir, "parent"), 0o777); err != nil {
+		t.Fatalf("Error creating parent: %v", err)
+	}
+
+	err = watcher.Add(filepath.Join(tmpdir, "parent"))
+	if err != nil {
+		t.Fatalf("Unable to add parent: %v", err)
+	}
+
+	if err := os.Mkdir(filepath.Join(tmpdir, "parent", "child"), 0o777); err != nil {
+		log.Fatalf("Error creating parent/child: %v", err)
+	}
+
+	err = watcher.Add(filepath.Join(tmpdir, "parent", "child"))
+	if err != nil {
+		t.Fatalf("Unable to add parent/child: %v", err)
+	}
+
+	err = watcher.Remove(filepath.Join(tmpdir, "parent", "child"))
+	if err != nil {
+		t.Fatalf("Unable to remove parent/child: %v", err)
+	}
+
+	err = os.Remove(filepath.Join(tmpdir, "parent", "child"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = os.Stat(filepath.Join(tmpdir, "parent", "child"))
+	if err == nil {
+		t.Fatal("parent/child should have been deleted")
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatal(err)
+	}
+
+	select {
+	case err, ok := <-errs:
+		if ok {
+			t.Fatalf("Error reported in watcher: %v", err)
+		}
+	default:
+	}
+
+	if err := watcher.Close(); err != nil {
+		t.Fatalf("Error closing watcher: %v", err)
+	}
+
+	select {
+	case err, ok := <-errs:
+		if ok {
+			t.Fatalf("Error reported in watcher: %v", err)
+		}
+	default:
 	}
 }
